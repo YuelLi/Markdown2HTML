@@ -589,3 +589,224 @@ void MarkdownTransform::change_list(int position, std::vector<std::string>::iter
 		(*vectorIt) = tempstr;
 	}
 }
+
+//escape
+void MarkdownTransform::trans_escape_first(std::vector<std::string>::iterator & vectorIt, 
+	std::vector<std::string> & str, std::queue<char>& charqueue)
+{
+	std::string newStr;
+	std::vector<std::string>::iterator initialVectorIt = vectorIt;
+	if (vectorIt == str.end())
+	{
+		return;
+	}
+	for (; vectorIt != str.end(); vectorIt++)
+	{
+		std::string::iterator striter = (*vectorIt).begin();
+		if (!(*vectorIt).empty())
+		{
+			for (; striter != (*vectorIt).end(); )
+			{
+				if ((*striter) == '\\' && striter != ((*vectorIt).end()-1))
+				{
+					char ch = *(striter + 1);
+					charqueue.push(ch);
+					striter++;
+					int position = striter - (*vectorIt).begin();
+					(*vectorIt).erase(striter);
+					striter = (*vectorIt).begin() + position ;
+				}
+				else striter++;
+			}
+		}
+	}
+	vectorIt = initialVectorIt;
+	
+}
+
+void MarkdownTransform::trans_escape_last(std::vector<std::string>::iterator & vectorIt,
+	std::vector<std::string> & str, std::queue<char>& charqueue)
+{
+	std::string newStr;
+	std::vector<std::string>::iterator initialVectorIt = vectorIt;
+	if (vectorIt == str.end())
+	{
+		return;
+	}
+	for (; vectorIt != str.end(); vectorIt++)
+	{
+		std::string::iterator striter = (*vectorIt).begin();
+		if (!(*vectorIt).empty())
+		{
+			for (; striter != (*vectorIt).end(); striter++)
+			{
+				if (*striter == '\\'&& !charqueue.empty())
+				{
+					char ch=charqueue.front();
+					*striter = ch;
+					charqueue.pop();
+				}
+			}
+		}
+	}
+	vectorIt = initialVectorIt;
+}
+
+//bold and itatlics
+void MarkdownTransform::trans_bold_and_italic(std::vector<std::string>::iterator & vectorIt, std::vector<std::string> & str)
+{
+	std::string tempstr;
+	std::vector<std::string>::iterator initialVectorIt = vectorIt;
+	int itaCounter = 0, boldCounter=0;
+
+	if (vectorIt == str.end())
+	{
+		return;
+	}
+
+	for (; vectorIt != str.end(); vectorIt++)
+	{
+		tempstr = (*vectorIt);
+		std::string::iterator striter = tempstr.begin();
+		if (!tempstr.empty())
+		{
+			for (; striter != tempstr.end(); striter++)
+			{
+				int position = striter - tempstr.begin();
+				if ((tempstr.end()-striter)>2&&(*striter) == '*'&&(*(striter + 1)) == '*'&& boldCounter==0)
+				{
+					tempstr.erase(striter);
+					striter = tempstr.begin() + position;
+					tempstr.erase(striter);
+					striter = tempstr.begin() + position;
+					tempstr.insert(position, "<strong>");
+					(*vectorIt) = tempstr;
+					striter = tempstr.begin() + position;
+					boldCounter = 1;
+				}
+				else if ((tempstr.end() - striter)>2 && (*striter) == '*' && (*(striter + 1)) == '*'&& boldCounter == 1)
+				{
+					tempstr.erase(striter);
+					striter = tempstr.begin() + position;
+					tempstr.erase(striter);
+					striter = tempstr.begin() + position;
+					tempstr.insert(position, "</strong>");
+					(*vectorIt) = tempstr;
+					striter = tempstr.begin() + position;
+					boldCounter = 0;
+				}
+				else if ((*striter) == '*'&& itaCounter == 0)
+				{
+					tempstr.erase(striter);
+					striter = tempstr.begin() + position;
+					tempstr.insert(position, "<em>");
+					(*vectorIt) = tempstr;
+					striter = tempstr.begin() + position;
+					itaCounter = 1;
+				}
+				else if ((*striter) == '*'&& itaCounter == 1)
+				{
+					tempstr.erase(striter);
+					striter = tempstr.begin() + position;
+					tempstr.insert(position, "</em>");
+					(*vectorIt) = tempstr;
+					striter = tempstr.begin() + position;
+					itaCounter = 0;
+				}
+			}
+			if (itaCounter == 1) { (*vectorIt) = (*vectorIt) + "</em>"; itaCounter = 0; }
+			if (boldCounter == 1) { (*vectorIt) = (*vectorIt) + "</strong>"; boldCounter = 0; }
+		}
+	}
+	vectorIt = initialVectorIt;
+}
+
+void MarkdownTransform::trans_parting_line(std::vector<std::string>::iterator & vectorIt, std::vector<std::string> & str)
+{
+	std::vector<std::string>::iterator initialVectorIt = vectorIt;
+	if (vectorIt == str.end())
+	{
+		return;
+	}
+	int count = 0;
+	for (; vectorIt != str.end(); vectorIt++)
+	{
+		std::string::iterator striter = (*vectorIt).begin();
+		if (!(*vectorIt).empty())
+		{
+			count = 0;
+			if (*striter == '*')
+			{
+				count++;
+				striter++;
+				for (; striter != (*vectorIt).end(); striter++)
+				{
+					if (*striter == '*'&&*(striter - 1) == '*')
+					{
+						if (count < 3)
+						{
+							count++;
+							
+						}
+					}
+					else break;
+				}
+				if (striter == (*vectorIt).end()&&count==3) { (*vectorIt) = "<hr>";  }
+			}
+		}
+	}
+	vectorIt = initialVectorIt;
+}
+
+void MarkdownTransform::trans_linebreak(std::vector<std::string>::iterator&vectorIt, std::vector<std::string>&str)
+{
+	std::vector<std::string>::iterator initialVectorIt = vectorIt;
+	if (vectorIt == str.end())
+	{
+		return;
+	}
+	for (; vectorIt != str.end(); vectorIt++)
+	{
+		if (!(*vectorIt).empty())
+		{
+			if (*vectorIt == "<pre><code>")
+			{
+				while (vectorIt != str.end() && *vectorIt != "</code></pre>")
+				{
+					vectorIt++;
+				}
+			}
+			else 
+			{
+				std::string::iterator striter = (*vectorIt).end() - 1;
+				if ((*vectorIt).length() > 1 && striter != (*vectorIt).begin() && *striter == ' '&&*(striter - 1) == ' ')
+				{
+					*vectorIt = (*vectorIt) + "<br>";
+				}
+			}
+		}
+	}
+	vectorIt = initialVectorIt;
+}
+
+// add p tags
+void MarkdownTransform::trans_emptyline(std::vector<std::string>::iterator&vectorIt, std::vector<std::string>&str)
+{
+	std::vector<std::string>::iterator initialVectorIt = vectorIt;
+	if (vectorIt == str.end())
+	{
+		return;
+	}
+	for (; vectorIt != str.end(); vectorIt++)
+	{
+		if (!(*vectorIt).empty())
+		{
+			continue;
+		}
+		else
+		{
+			*vectorIt = "<p></p>";
+		}
+	}
+	vectorIt= initialVectorIt;
+}
