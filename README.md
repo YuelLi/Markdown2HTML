@@ -1,6 +1,5 @@
 # Markdown2HTML
 
-## Introduction
 For this Markdown tool, the file I/O stream is used to read the md file. The program will covert it into HTML files.
 
 ## Libraries
